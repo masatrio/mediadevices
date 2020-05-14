@@ -15,10 +15,10 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/codec"
 	mio "github.com/pion/mediadevices/pkg/io"
 	"github.com/pion/mediadevices/pkg/io/video"
-	"github.com/pion/mediadevices/pkg/prop"
 )
 
 type encoder struct {
@@ -30,17 +30,19 @@ type encoder struct {
 	closed bool
 }
 
-func newEncoder(r video.Reader, p prop.Media, params Params) (codec.ReadCloser, error) {
+func newEncoder(track *mediadevices.VideoTrack, params Params) (codec.ReadCloser, error) {
 	if params.BitRate == 0 {
 		params.BitRate = 100000
 	}
 
+	settings := track.GetSettings()
+
 	var rv C.int
 	cEncoder := C.enc_new(C.EncoderOptions{
-		width:          C.int(p.Width),
-		height:         C.int(p.Height),
+		width:          C.int(settings.Width),
+		height:         C.int(settings.Height),
 		target_bitrate: C.int(params.BitRate),
-		max_fps:        C.float(p.FrameRate),
+		max_fps:        C.float(settings.FrameRate),
 	}, &rv)
 	if err := errResult(rv); err != nil {
 		return nil, fmt.Errorf("failed in creating encoder: %v", err)
@@ -48,7 +50,7 @@ func newEncoder(r video.Reader, p prop.Media, params Params) (codec.ReadCloser, 
 
 	return &encoder{
 		engine: cEncoder,
-		r:      video.ToI420(r),
+		r:      video.ToI420(track.NewReader()),
 	}, nil
 }
 
